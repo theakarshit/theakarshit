@@ -19,12 +19,34 @@
       #nebula { position: absolute; width: 1400px; height: 1400px; left: 900px; top: -500px; border-radius: 50%;
         background: radial-gradient(circle, rgba(120,90,255,0.28) 0%, rgba(60,140,255,0.12) 35%, rgba(0,0,0,0) 70%);
         filter: blur(20px); }
-      #planet { position: absolute; width: 520px; height: 520px; left: 1500px; top: 700px; border-radius: 50%;
-        background: radial-gradient(circle at 35% 35%, #ffb36b 0%, #d5602f 45%, #4a1a26 80%, #1a0a14 100%);
-        box-shadow: 0 0 120px rgba(255,140,80,0.35), inset -60px -40px 120px rgba(0,0,0,0.6); }
-      #ring { position: absolute; width: 900px; height: 220px; left: 1310px; top: 850px; border-radius: 50%;
-        border: 26px solid rgba(255, 210, 160, 0.35); border-top-color: rgba(255,210,160,0.08);
-        transform: rotate(-18deg); }
+      #planet-group { position: absolute; left: 1500px; top: 700px; width: 520px; height: 520px; }
+      #planet { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: #6a2a22;
+        box-shadow: 0 0 140px rgba(255,140,80,0.35); }
+      #planet-tex { position: absolute; left: 0; top: 0; width: 1040px; height: 520px;
+        background-color: #c9552a;
+        background-image:
+          radial-gradient(ellipse 150px 50px at 120px 180px, rgba(255,214,150,0.85), rgba(255,214,150,0) 70%),
+          radial-gradient(ellipse 210px 44px at 380px 300px, rgba(120,30,40,0.9), rgba(120,30,40,0) 70%),
+          radial-gradient(ellipse 90px 90px at 300px 120px, rgba(255,170,90,0.7), rgba(255,170,90,0) 70%),
+          radial-gradient(ellipse 130px 36px at 60px 400px, rgba(255,230,190,0.6), rgba(255,230,190,0) 70%),
+          radial-gradient(ellipse 240px 60px at 470px 200px, rgba(255,120,60,0.55), rgba(255,120,60,0) 70%),
+          radial-gradient(ellipse 60px 60px at 200px 340px, rgba(90,20,30,0.8), rgba(90,20,30,0) 70%),
+          repeating-linear-gradient(180deg, rgba(255,255,255,0.08) 0 22px, rgba(0,0,0,0.10) 22px 48px, rgba(255,200,140,0.10) 48px 70px, rgba(0,0,0,0.05) 70px 96px);
+        background-size: 520px 520px, 520px 520px, 520px 520px, 520px 520px, 520px 520px, 520px 520px, 100% 100%;
+        background-repeat: repeat-x; }
+      #planet-shade { position: absolute; inset: 0; border-radius: 50%;
+        background: radial-gradient(circle at 34% 32%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 30%, rgba(0,0,0,0) 45%, rgba(20,5,10,0.55) 68%, rgba(5,2,6,0.92) 100%);
+        box-shadow: inset -50px -30px 90px rgba(0,0,0,0.65), inset 10px 8px 40px rgba(255,220,180,0.15); }
+      .ring { position: absolute; width: 900px; height: 230px; left: -190px; top: 150px; border-radius: 50%;
+        border: 26px solid rgba(255, 210, 160, 0.42); border-top-color: rgba(255,210,160,0.10);
+        transform: rotate(-18deg); box-shadow: 0 0 30px rgba(255,200,150,0.15); }
+      #ring-back { clip-path: inset(0 0 52% 0); z-index: 0; }
+      #ring-front { clip-path: inset(48% 0 0 0); z-index: 2; }
+      #planet { z-index: 1; }
+      #twinkle { position: absolute; inset: 0; overflow: hidden; }
+      .tw { position: absolute; border-radius: 50%; background: radial-gradient(circle, #fff 0%, rgba(255,255,255,0.7) 30%, rgba(255,255,255,0) 70%); }
+      .tw.warm { background: radial-gradient(circle, #ffe7c4 0%, rgba(255,214,170,0.7) 30%, rgba(255,214,170,0) 70%); }
+      .tw.cool { background: radial-gradient(circle, #dbe6ff 0%, rgba(190,210,255,0.7) 30%, rgba(190,210,255,0) 70%); }
       .clip { position: absolute; }
       .scene { position: absolute; inset: 0; }
 
@@ -74,8 +96,15 @@
         <div id="nebula"></div>
         <canvas id="stars-far" width="2200" height="1400" style="left:-140px; top:-160px"></canvas>
         <canvas id="stars-near" width="2200" height="1400" style="left:-140px; top:-160px"></canvas>
-        <div id="ring"></div>
-        <div id="planet"></div>
+        <div id="twinkle"></div>
+        <div id="planet-group">
+          <div class="ring" id="ring-back"></div>
+          <div id="planet">
+            <div id="planet-tex"></div>
+            <div id="planet-shade"></div>
+          </div>
+          <div class="ring" id="ring-front"></div>
+        </div>
       </div>
 
       <!-- Scene 1: name -->
@@ -143,15 +172,44 @@
       drawStars("stars-far", 900, 42, 1.1, 0.7);
       drawStars("stars-near", 220, 1337, 2.0, 0.95);
 
+      // Twinkling stars: deterministic positions and phases, animated on the GSAP timeline
+      const twinkleHost = document.getElementById("twinkle");
+      const twinkles = [];
+      (function () {
+        let s = 2024 >>> 0;
+        const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+        for (let i = 0; i < 170; i++) {
+          const el = document.createElement("div");
+          const size = 5 + rnd() * 9;
+          const kind = rnd();
+          el.className = "tw" + (kind < 0.2 ? " warm" : kind < 0.55 ? " cool" : "");
+          el.style.left = (rnd() * 1920) + "px";
+          el.style.top = (rnd() * 1080) + "px";
+          el.style.width = el.style.height = size + "px";
+          twinkleHost.appendChild(el);
+          twinkles.push({ el, lo: 0.02 + rnd() * 0.18, hi: 0.75 + rnd() * 0.25, period: 0.9 + rnd() * 2.6, phase: rnd() * 3, pulse: 0.7 + rnd() * 0.5 });
+        }
+      })();
+
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
+
+      // Shimmer: each star breathes between its own low and high brightness, out of phase with the others
+      twinkles.forEach((t) => {
+        const half = t.period / 2;
+        const reps = Math.ceil(24 / half) + 1;
+        tl.fromTo(t.el, { opacity: t.lo, scale: t.pulse }, { opacity: t.hi, scale: 1.4, duration: half, ease: "sine.inOut", repeat: reps, yoyo: true }, -t.phase);
+      });
 
       // Background drift for the full 24s
       tl.fromTo("#stars-far", { x: 0, y: 0 }, { x: 40, y: 24, duration: 24, ease: "none" }, 0);
       tl.fromTo("#stars-near", { x: 0, y: 0 }, { x: 110, y: 60, duration: 24, ease: "none" }, 0);
       tl.fromTo("#nebula", { x: 0, y: 0, scale: 1 }, { x: -120, y: 60, scale: 1.15, duration: 24, ease: "none" }, 0);
-      tl.fromTo("#planet", { y: 0, rotation: 0 }, { y: -90, rotation: 12, duration: 24, ease: "none" }, 0);
-      tl.fromTo("#ring", { y: 0 }, { y: -90, duration: 24, ease: "none" }, 0);
+      // Planet: axial rotation (texture scrolls one half turn), slow orbital arc, and a gentle approach
+      tl.fromTo("#planet-tex", { x: 0 }, { x: -520, duration: 24, ease: "none" }, 0);
+      tl.fromTo("#planet-group", { x: 60, y: 40 }, { x: -160, y: -130, duration: 24, ease: "sine.inOut" }, 0);
+      tl.fromTo("#planet-group", { scale: 0.94 }, { scale: 1.08, duration: 24, ease: "power1.inOut" }, 0);
+      tl.fromTo("#twinkle", { x: 0, y: 0 }, { x: 70, y: 40, duration: 24, ease: "none" }, 0);
 
       // Scene 1 (0–6s)
       tl.fromTo("#s1 .eyebrow", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" }, 0.4);
